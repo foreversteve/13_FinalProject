@@ -38,16 +38,18 @@ def phong_shading(norm_left, norm_right, x0, z0, x1, z1, y, screen, zbuffer, vie
         # calculate color based on interpolation of vertex normals
         if x1 - x0 != 0:
             factor = (x1-x)/(x1-x0)
-        elif z1 - z0 != 0:
-            factor = (z-z0) / (z1 -z0)
+        # elif z1 - z0 != 0:
+        #     factor = (z-z0) / (z1 -z0)
+        # else:
+        #     factor = 0
+            n_x = (norm_left[0] - norm_right[0]) * factor + norm_right[0]
+            n_y = (norm_left[1] - norm_right[1]) * factor + norm_right[1]
+            n_z = (norm_left[2] - norm_right[2]) * factor + norm_right[2]
+
+            normal = [n_x,n_y,n_z]
         else:
-            factor = 0
+            normal = [norm_left[0],norm_left[1],norm_left[2]]
             
-        n_x = (norm_left[0] - norm_right[0]) * factor + norm_right[0]
-        n_y = (norm_left[1] - norm_right[1]) * factor + norm_right[1]
-        n_z = (norm_left[2] - norm_right[2]) * factor + norm_right[2]
-            
-        normal = [n_x,n_y,n_z]
         color = get_lighting(normal, view, ambient, light, symbols, reflect)
         if color[0] + color[1] + color[2] < 10:
             print(normal,"weird")
@@ -92,9 +94,10 @@ def scanline_convert(polygons, i, screen, zbuffer, color, v_norm, view, ambient,
     dz1 = (points[MID][2] - points[BOT][2]) / distance1 if distance1 != 0 else 0
 
     # vertex normals for this polygon
-    norm_v1 = v_norm[points[BOT]]
-    norm_v2 = v_norm[points[MID]]
-    norm_v3 = v_norm[points[TOP]]
+    if shading != "flat":
+        norm_v1 = v_norm[points[BOT]]
+        norm_v2 = v_norm[points[MID]]
+        norm_v3 = v_norm[points[TOP]]
 
     while y <= int(points[TOP][1]):
         if ( not flip and y >= int(points[MID][1])):
@@ -115,7 +118,10 @@ def scanline_convert(polygons, i, screen, zbuffer, color, v_norm, view, ambient,
                 factor_0 = (y-points[BOT][1]) / (points[TOP][1] - points[BOT][1])
             elif points[TOP][0] - points[BOT][0] != 0:
                 factor_0 = (x0-points[BOT][0]) / (points[TOP][0] - points[BOT][0])
-
+            elif points[TOP][2] - points[TOP][2] != 0:
+                factor_0 = (z0-points[BOT][2]) / (points[TOP][2] - points[TOP][2])
+            else:
+                factor_0 = 0
             nl_x = (norm_v3[0]-norm_v1[0]) * factor_0 + norm_v1[0]
             nl_y = (norm_v3[1]-norm_v1[1]) * factor_0 + norm_v1[1]
             nl_z = (norm_v3[2]-norm_v1[2]) * factor_0 + norm_v1[2]
@@ -123,19 +129,35 @@ def scanline_convert(polygons, i, screen, zbuffer, color, v_norm, view, ambient,
             norm_left = [nl_x,nl_y,nl_z]
             # right norm
             if not flip:
+                ran = False
                 if (points[MID][1] - points[BOT][1]) != 0:
                     factor_1 = (y-points[BOT][1]) / (points[MID][1] - points[BOT][1])
+                    ran = True
                 elif points[MID][0] - points[BOT][0] != 0:
                     factor_1 = (x0-points[BOT][0]) / (points[MID][0] - points[BOT][0])
-
+                    ran = True
+                elif points[MID][2] - points[BOT][2] != 0:
+                    factor_1 = (z0-points[BOT][2]) / (points[MID][2] - points[BOT][2])
+                else:
+                    factor_1 = 0
+                
                 nr_x = (norm_v2[0]-norm_v1[0]) * factor_1 + norm_v1[0]
                 nr_y = (norm_v2[1]-norm_v1[1]) * factor_1 + norm_v1[1]
                 nr_z = (norm_v2[2]-norm_v1[2]) * factor_1 + norm_v1[2]
             else:
+                ran = False
                 if (points[TOP][1] - points[MID][1]) != 0:
                     factor_1 = (y-points[MID][1]) / (points[TOP][1] - points[MID][1])
+                    ran = True
                 elif (points[TOP][0] - points[MID][0]) != 0:
                     factor_1 = (x0 -points[MID][0]) / (points[TOP][0] - points[MID][0])
+                    ran = True
+                elif points[TOP][2] - points[MID][2] != 0:
+                    factor_1 = (z0 -points[MID][2]) / (points[TOP][2] - points[MID][2])
+                else:
+                    factor_1 = 0
+                # if not ran:
+                #     print("Error")
 
                 nr_x = (norm_v3[0]-norm_v2[0]) * factor_1 + norm_v2[0]
                 nr_y = (norm_v3[1]-norm_v2[1]) * factor_1 + norm_v2[1]
@@ -170,6 +192,7 @@ def draw_polygons( polygons, screen, zbuffer, view, ambient, light, symbols, ref
         key = (vertex[0],vertex[1],vertex[2])
 
         poly_norm = calculate_normal(polygons,index-pos)
+        # if not (poly_norm[0] == 0 and poly_norm[1] == 0 and poly_norm[2] == 0):
         if key not in v_norm:
             v_norm[key] = poly_norm
         else:
@@ -180,7 +203,8 @@ def draw_polygons( polygons, screen, zbuffer, view, ambient, light, symbols, ref
 
     # Normalize Everything in vertex_norm dict
     for key in v_norm.keys():
-        normalize(v_norm[key])
+        if not (v_norm[key][0] == 0 and v_norm[key][1] == 0 and v_norm[key][2] == 0):
+            normalize(v_norm[key])
 
     point = 0
     while point < len(polygons) - 2:
