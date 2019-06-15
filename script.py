@@ -56,39 +56,46 @@ def first_pass( commands ):
   ===================="""
 def makecoolknobs(startval,endval,start_frame,end_frame,rate):
     tl = []
-    if (rate == 1):
-        step = (endval-startval)/(end_frame-start_frame)
-        tl = [startval+step*i for i in range(0,end_frame-start_frame)] # num_frames = end_frame-start_frame-1
+    dx = endval-startval
+    num_frames = float(end_frame-start_frame)
+    if (rate == "LINE"):
+        #print(endval,startval,end_frame,start_frame)
+        step = dx/float(num_frames)
+        #print(end_frame-start_frame)
+        #print("step",step)
+        tl = [startval+step*i for i in range(0,int(num_frames))]
+        print("lin",tl)
+        #print("tl",tl) # num_frames = end_frame-start_frame-1
     else:
-        diff = endval - startval
         if (startval == 0):
             newstart = .01
         else:
             newstart = startval
-        def tfunc(start,end,f1,f2,currstep):
-            return start * (end/start)**((currstep-f1)/(f1-f2))
-        tl = [tfunc(startval,endval,start_frame,end_frame,i) for i in range(start_frame,end_frame)]
+        # math from here http://www.pmean.com/10/ExponentialInterpolation.html
+        k = dx/(num_frames)
+        u = -1*dx/ (math.exp(k*start_frame)-math.exp(k*end_frame))
+        v = newstart - u * math.exp(k*start_frame)
+        tl = [u*math.exp(k*(start_frame+i)) + v for i in range(int(num_frames))]
+        print("expo",tl)
     return tl
 
 def second_pass( commands, num_frames ):
     frames = [ {} for i in range(num_frames) ]
 
     for command in commands:
-        print(command)
+        #print(command)
         if command['op'] == 'vary':
             knob = command['knob']
-
+            print(command)
             start_frame = command['args'][0]
             end_frame = command['args'][1]
+            rate = command['rate']
 
             val = command['args'][2]
             # this line
             print(command['args'])
-            if (len(command['args']) > 4):
-                rate = int(command['args'][4])
-            else:
-                rate = 1
             valsforframes = makecoolknobs(int(val),int(command['args'][3]),int(start_frame),int(end_frame),rate)
+            #print("Vals for frames",valsforframes)
             for ind in range(int(start_frame),int(end_frame)):
                 frames[ind][knob] = valsforframes[ind-int(start_frame)]
 
@@ -97,6 +104,7 @@ def second_pass( commands, num_frames ):
                 frames[index][knob] = val
                 val += step'''
     return frames
+
 
 def run(filename):
     """

@@ -14,49 +14,55 @@ tokens = (
     "AMBIENT",
     "TORUS",
     "SPHERE",
-    "BOX", 
-    "LINE", 
-    "MESH", 
-    "TEXTURE", 
-    "SET", 
-    "MOVE", 
-    "SCALE", 
-    "ROTATE", 
-    "BASENAME", 
-    "SAVE_KNOBS", 
-    "TWEEN", 
-    "FRAMES", 
-    "VARY", 
-    "PUSH", 
-    "POP", 
-    "SAVE", 
-    "GENERATE_RAYFILES", 
-    "SHADING", 
-    "SHADING_TYPE", 
-    "SET_KNOBS", 
-    "FOCAL", 
-    "DISPLAY", 
-    "SCREEN", 
-    "WEB", 
+    "BOX",
+    "CYLINDER",
+    "CONE",
+    "LINE",
+    "MESH",
+    "PATH",
+    "TEXTURE",
+    "SET",
+    "MOVE",
+    "SCALE",
+    "ROTATE",
+    "BASENAME",
+    "SAVE_KNOBS",
+    "TWEEN",
+    "FRAMES",
+    "VARY",
+    "PUSH",
+    "POP",
+    "SAVE",
+    "GENERATE_RAYFILES",
+    "SHADING",
+    "SHADING_TYPE",
+    "SET_KNOBS",
+    "FOCAL",
+    "DISPLAY",
+    "SCREEN",
+    "WEB",
     "CO"
 )
 
 reserved = {
-    "x" : "XYZ", 
-    "y" : "XYZ", 
-    "z" : "XYZ", 
-    "screen" : "SCREEN", 
+    "x" : "XYZ",
+    "y" : "XYZ",
+    "z" : "XYZ",
+    "screen" : "SCREEN",
     "light" : "LIGHT",
     "constants" : "CONSTANTS",
-    "save_coord_system" : "SAVE_COORDS", 
+    "save_coord_system" : "SAVE_COORDS",
     "camera" : "CAMERA",
     "ambient" : "AMBIENT",
     "torus" : "TORUS",
     "sphere" : "SPHERE",
+    "cone" : "CONE",
+    "cylinder" : "CYLINDER",
     "box" : "BOX",
     "line" : "LINE",
     "mesh" : "MESH",
     "texture" : "TEXTURE",
+    "path" : "PATH",
     "set" : "SET",
     "move" : "MOVE",
     "scale" : "SCALE",
@@ -86,8 +92,8 @@ t_ignore = " \t"
 
 def t_ID(t):
     r'[a-zA-Z_][a-zA-Z_0-9]*'
-    if t.value in reserved.keys():
-        t.type = reserved[t.value]
+    if reserved.has_key(t.value):
+        t.type = reserved.get(t.value)
     return t
 
 def t_STRING(t):
@@ -109,7 +115,7 @@ def t_CO(t):
     return t
 
 def t_error(t):
-    print("TOKEN ERROR: " + str(t))
+    print "TOKEN ERROR: " + str(t)
 
 lex.lex()
 
@@ -162,6 +168,28 @@ def p_command_show(p):
     """command : DISPLAY"""
     commands.append({'op' : p[1], 'args' : None})
 
+def p_command_cone(p):
+    """command : CONE NUMBER NUMBER NUMBER NUMBER NUMBER
+               | CONE SYMBOL NUMBER NUMBER NUMBER NUMBER NUMBER"""
+    cmd = {'op' : p[1], 'constants' : None, 'cs' : None, 'args':[]}
+    if len(p) == 7:
+        cmd['args'] = p[2:7]
+    else:
+        cmd['args'] = p[3:8]
+        cmd['constants'] = p[2]
+    commands.append(cmd)
+
+def p_command_cylinder(p):
+    """command : CYLINDER NUMBER NUMBER NUMBER NUMBER NUMBER
+               | CYLINDER SYMBOL NUMBER NUMBER NUMBER NUMBER NUMBER"""
+    cmd = {'op' : p[1], 'constants' : None, 'cs' : None, 'args':[]}
+    if len(p) == 7:
+        cmd['args'] = p[2:7]
+    else:
+        cmd['args'] = p[3:8]
+        cmd['constants'] = p[2]
+    commands.append(cmd)
+
 def p_command_sphere(p):
     """command : SPHERE NUMBER NUMBER NUMBER NUMBER
                | SPHERE SYMBOL NUMBER NUMBER NUMBER NUMBER
@@ -179,6 +207,11 @@ def p_command_sphere(p):
     cmd['args'] = p[arg_start:arg_start+4]
     commands.append(cmd)
 
+def p_command_path(p):
+    """command : PATH SYMBOL NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER NUMBER"""
+    cmd = {'op' : p[1], 'args' : p[3:13], 'pathname': p[2]}
+    symbols[p[2]] = ['pathname', 0]
+    commands.append(cmd)
 def p_command_torus(p):
     """command : TORUS NUMBER NUMBER NUMBER NUMBER NUMBER
                | TORUS NUMBER NUMBER NUMBER NUMBER NUMBER SYMBOL
@@ -243,12 +276,17 @@ def p_command_line(p):
 
 def p_command_move(p):
     """command : MOVE NUMBER NUMBER NUMBER SYMBOL
-               | MOVE NUMBER NUMBER NUMBER"""
-    cmd = {'op' : p[1], 'args' : p[2:5], 'knob' : None}
-    if len(p) == 6:
-        cmd['knob'] = p[5]
-        symbols[p[5]] = ['knob', 0]
-    commands.append(cmd)
+               | MOVE NUMBER NUMBER NUMBER
+               | MOVE SYMBOL"""
+    if len(p) == 3:
+        cmd = {'op': p[1], 'path': p[2], 'args' : []}
+        commands.append(cmd)
+    else:
+        cmd = {'op' : p[1], 'args' : p[2:5], 'knob' : None, 'path': None}
+        if len(p) == 6:
+            cmd['knob'] = p[5]
+            symbols[p[5]] = ['knob', 0]
+        commands.append(cmd)
 
 def p_command_scale(p):
     """command : SCALE NUMBER NUMBER NUMBER SYMBOL
@@ -279,8 +317,11 @@ def p_command_basename(p):
     commands.append(cmd)
 
 def p_command_vary(p):
-    """command : VARY SYMBOL NUMBER NUMBER NUMBER NUMBER"""
-    cmd = {'op' : p[1], 'args' : p[3:], 'knob' : p[2]}
+    """command : VARY SYMBOL NUMBER NUMBER NUMBER NUMBER
+               | VARY SYMBOL NUMBER NUMBER NUMBER NUMBER SYMBOL"""
+    cmd = {'op' : p[1], 'args' : p[3:7], 'knob' : p[2], 'rate' : 'LINE'}
+    if len(p) == 8:
+        cmd['rate'] = p[7]
     symbols[p[2]] = ['knob', 0]
     commands.append(cmd)
 
@@ -378,7 +419,7 @@ def p_texture(p):
     symbols[p[2]] = ['texture', p[3:]]
 
 def p_error(p):
-    print('SYNTAX ERROR: ' + str(p))
+    print 'SYNTAX ERROR: ' + str(p)
 
 yacc.yacc()
 
