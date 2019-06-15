@@ -1,7 +1,7 @@
 # The End: Graphics Final Project
 
 # Team Eezy Mafia
-Amit Narang & Steven Liu
+Amit Narang & Steven Liu, Period 4
 
 # Features to Implement
 
