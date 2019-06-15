@@ -54,10 +54,27 @@ def first_pass( commands ):
   dictionary corresponding to the given knob with the
   appropirate value.
   ===================="""
+def makecoolknobs(startval,endval,start_frame,end_frame,rate):
+    tl = []
+    if (rate == 1):
+        step = (endval-startval)/(end_frame-start_frame)
+        tl = [startval+step*i for i in range(0,end_frame-start_frame)] # num_frames = end_frame-start_frame-1
+    else:
+        diff = endval - startval
+        if (startval == 0):
+            newstart = .01
+        else:
+            newstart = startval
+        def tfunc(start,end,f1,f2,currstep):
+            return start * (end/start)**((currstep-f1)/(f1-f2))
+        tl = [tfunc(startval,endval,start_frame,end_frame,i) for i in range(start_frame,end_frame)]
+    return tl
+
 def second_pass( commands, num_frames ):
     frames = [ {} for i in range(num_frames) ]
 
     for command in commands:
+        print(command)
         if command['op'] == 'vary':
             knob = command['knob']
 
@@ -65,12 +82,21 @@ def second_pass( commands, num_frames ):
             end_frame = command['args'][1]
 
             val = command['args'][2]
-            step =  (command['args'][3] - command['args'][2]) / (end_frame - start_frame)
+            # this line
+            print(command['args'])
+            if (len(command['args']) > 4):
+                rate = int(command['args'][4])
+            else:
+                rate = 1
+            valsforframes = makecoolknobs(int(val),int(command['args'][3]),int(start_frame),int(end_frame),rate)
+            for ind in range(int(start_frame),int(end_frame)):
+                frames[ind][knob] = valsforframes[ind-int(start_frame)]
+
+            '''step =  (command['args'][3] - command['args'][2]) / (end_frame - start_frame)
             for index in range(int(start_frame),int(end_frame)):
                 frames[index][knob] = val
-                val += step
+                val += step'''
     return frames
-
 
 def run(filename):
     """
@@ -121,10 +147,10 @@ def run(filename):
     coords1 = []
 
     if 'shading' not in symbols:
-        shading = "flat" 
+        shading = "flat"
     else:
         shading = symbols['shading'][1]
-    
+
     # print(symbols)
     # print(commands)
     for index in range(len(frames)):
